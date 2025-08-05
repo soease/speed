@@ -47,8 +47,8 @@ A simple yet functional network speed test application that measures download sp
 1. Clone or download the project code
 
 ```bash
-git clone https://github.com/yourusername/speedtest-app.git
-cd speedtest-app
+git clone https://github.com/soease/speed.git
+cd speed
 ```
 
 2. Install dependencies

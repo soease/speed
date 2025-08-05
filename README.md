@@ -46,8 +46,8 @@
 1. 克隆或下载项目代码
 
 ```bash
-git clone https://github.com/yourusername/speedtest-app.git
-cd speedtest-app
+git clone https://github.com/soease/speed.git
+cd speed
 ```
 
 2. 安装依赖
@@ -100,7 +100,7 @@ http://localhost:8081
 ./speedtest.exe -list
 ```
 
-5. **启动自动测速**：设置间隔时间（分钟），定期进行测速
+5. **启动自动测速**：设置间隔时间（分钟），定期进行测速(一般与-web合用)
 ```bash
 ./speedtest.exe -interval <分钟数>
 ```
@@ -118,8 +118,6 @@ http://localhost:8081
 | `-limit` | 趋势图显示的最大测速记录数（默认100） | `./speedtest.exe -web -limit 200` |
 
 ## 截图展示
-
-> 请运行应用后，使用截图工具截取界面，并保存为screenshot.png放在项目根目录下
 
 ![应用界面](screenshot.png)
 
