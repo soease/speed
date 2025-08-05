@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>网络速度测试统计</title>
+	<!-- 引入Chart.js -->
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<!-- 引入日期适配器 -->
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+	<!-- 引入Font Awesome图标库 -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+	<style>
+		/* 全局样式 */
+		:root {
+			--primary-color: #3498db;
+			--secondary-color: #2ecc71;
+			--warning-color: #f39c12;
+			--danger-color: #e74c3c;
+			--purple-color: #9b59b6;
+			--gray-light: #f5f7fa;
+			--gray: #e0e0e0;
+			--gray-dark: #7f8c8d;
+			--text-primary: #2c3e50;
+			--text-secondary: #34495e;
+			--white: #ffffff;
+			--shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+			--shadow-hover: 0 10px 20px rgba(0, 0, 0, 0.1);
+			--transition: all 0.3s ease;
+		}
+
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: 'Segoe UI', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+			max-width: 1200px;
+			margin: 0 auto;
+			padding: 20px;
+			background-color: var(--gray-light);
+			color: var(--text-primary);
+			line-height: 1.6;
+		}
+
+		/* 容器样式 */
+		.container {
+			margin-bottom: 40px;
+			animation: fadeIn 0.5s ease-in-out;
+		}
+
+		.chart-container {
+			position: relative;
+			height: 400px;
+			width: 100%;
+			margin-bottom: 30px;
+			background-color: var(--white);
+			padding: 20px;
+			border-radius: 12px;
+			box-shadow: var(--shadow);
+			transition: var(--transition);
+		}
+
+		.chart-container:hover {
+			box-shadow: var(--shadow-hover);
+		}
+
+		/* 标题样式 */
+		h1 {
+			color: var(--text-primary);
+			text-align: center;
+			margin-bottom: 40px;
+			padding-bottom: 15px;
+			position: relative;
+			font-weight: 600;
+		}
+
+		h1::after {
+			content: '';
+			position: absolute;
+			bottom: 0;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 120px;
+			height: 4px;
+			background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+			border-radius: 2px;
+		}
+
+		h2 {
+			color: var(--text-primary);
+			margin-top: 50px;
+			margin-bottom: 25px;
+			font-weight: 500;
+			position: relative;
+			padding-left: 15px;
+		}
+
+		h2::before {
+			content: '';
+			position: absolute;
+			left: 0;
+			top: 50%;
+			transform: translateY(-50%);
+			width: 6px;
+			height: 25px;
+			background-color: var(--primary-color);
+			border-radius: 3px;
+		}
+
+		h3 {
+			color: var(--text-secondary);
+			margin-top: 15px;
+			margin-bottom: 20px;
+			border-bottom: 2px solid var(--gray);
+			padding-bottom: 8px;
+			font-weight: 500;
+			position: relative;
+		}
+
+		h3::after {
+			content: '';
+			position: absolute;
+			bottom: -2px;
+			left: 0;
+			width: 60px;
+			height: 2px;
+			background-color: var(--primary-color);
+		}
+
+		/* 按钮样式 */
+		.btn-refresh {
+			background-color: var(--primary-color);
+			border: none;
+			color: white;
+			padding: 12px 24px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			margin: 15px 5px;
+			cursor: pointer;
+			border-radius: 30px;
+			transition: var(--transition);
+			box-shadow: 0 4px 6px rgba(52, 152, 219, 0.3);
+			font-weight: 500;
+		}
+
+		.btn-refresh:hover {
+			background-color: #2980b9;
+			transform: translateY(-2px);
+			box-shadow: 0 6px 12px rgba(52, 152, 219, 0.4);
+		}
+
+		.btn-refresh:active {
+			transform: translateY(0);
+		}
+
+		button[style*="background-color: #2196F3"] {
+			background-color: var(--secondary-color) !important;
+			box-shadow: 0 4px 6px rgba(46, 204, 113, 0.3);
+		}
+
+		button[style*="background-color: #2196F3"]:hover {
+			background-color: #27ae60 !important;
+			box-shadow: 0 6px 12px rgba(46, 204, 113, 0.4);
+		}
+
+		/* 统计容器样式 */
+		.stats-container {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-around;
+			margin-bottom: 40px;
+			gap: 20px;
+		}
+
+		.stats-group {
+			flex: 1;
+			min-width: 100%;
+			margin-bottom: 25px;
+			background-color: var(--white);
+			padding: 20px;
+			border-radius: 12px;
+			box-shadow: var(--shadow);
+			transition: var(--transition);
+		}
+
+		.stats-group:hover {
+			box-shadow: var(--shadow-hover);
+		}
+
+		.group-content {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 15px;
+			justify-content: center;
+		}
+
+		/* 统计卡片样式 */
+		.stat-card {
+			background-color: var(--white);
+			padding: 25px;
+			border-radius: 12px;
+			text-align: center;
+			flex: 1;
+			min-width: 180px;
+			max-width: 240px;
+			box-shadow: var(--shadow);
+			transition: var(--transition);
+			position: relative;
+			overflow: hidden;
+		}
+
+		.stat-card:hover {
+			transform: translateY(-5px);
+			box-shadow: var(--shadow-hover);
+		}
+
+		.stat-card::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 5px;
+			background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+		}
+
+		.stat-card.download::before {
+			background: linear-gradient(90deg, #3498db, #2980b9);
+		}
+
+		.stat-card.upload::before {
+			background: linear-gradient(90deg, #2ecc71, #27ae60);
+		}
+
+		.stat-card.latency::before {
+			background: linear-gradient(90deg, #f39c12, #d35400);
+		}
+
+		.stat-card.tests-count::before {
+			background: linear-gradient(90deg, #9b59b6, #8e44ad);
+		}
+
+		.stat-card.other::before {
+			background: linear-gradient(90deg, #1abc9c, #16a085);
+		}
+
+		.stat-label {
+			font-size: 15px;
+			color: var(--gray-dark);
+			font-weight: 500;
+		}
+
+		.stat-value {
+			font-size: 28px;
+			font-weight: 600;
+			margin: 12px 0;
+			transition: var(--transition);
+		}
+
+		.stat-card:hover .stat-value {
+			transform: scale(1.05);
+		}
+
+		.stat-unit {
+			font-size: 14px;
+			color: var(--gray-dark);
+		}
+
+		.download .stat-value {
+			color: #3498db;
+		}
+
+		.upload .stat-value {
+			color: #2ecc71;
+		}
+
+		.latency .stat-value {
+			color: #f39c12;
+		}
+
+		.tests-count .stat-value {
+			color: #9b59b6;
+		}
+
+		.other .stat-value {
+			color: #1abc9c;
+		}
+
+		/* 动画效果 */
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+				transform: translateY(10px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		@keyframes pulse {
+			0% {
+				transform: scale(1);
+			}
+			50% {
+				transform: scale(1.05);
+			}
+			100% {
+				transform: scale(1);
+			}
+		}
+
+		.loading {
+			animation: pulse 1.5s infinite;
+		}
+
+		/* 响应式设计 */
+		@media (max-width: 768px) {
+			body {
+				padding: 15px;
+			}
+
+			.chart-container {
+				height: 300px;
+			}
+
+			.stat-card {
+				min-width: 100%;
+				max-width: 100%;
+			}
+
+			h1 {
+				font-size: 24px;
+			}
+
+			h2 {
+				font-size: 20px;
+			}
+
+			h3 {
+				font-size: 18px;
+			}
+
+			.btn-refresh {
+				width: 100%;
+				margin: 10px 0;
+			}
+		}
+	</style>
+</head>
+<body>
+	<h1>网络速度测试统计</h1>
+
+	<div class="stats-container">
+		<div class="stats-group">
+			<h3>下载速度</h3>
+			<div class="group-content">
+				<div class="stat-card download">
+					<div class="stat-label"><i class="fas fa-download"></i> 平均下载速度</div>
+					<div class="stat-value" id="avg-download">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+				<div class="stat-card download">
+					<div class="stat-label"><i class="fas fa-arrow-down"></i> 最高下载速度</div>
+					<div class="stat-value" id="max-download">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+				<div class="stat-card download">
+					<div class="stat-label"><i class="fas fa-arrow-down"></i> 最低下载速度</div>
+					<div class="stat-value" id="min-download">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="stats-group">
+			<h3>上传速度</h3>
+			<div class="group-content">
+				<div class="stat-card upload">
+					<div class="stat-label"><i class="fas fa-upload"></i> 平均上传速度</div>
+					<div class="stat-value" id="avg-upload">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+				<div class="stat-card upload">
+					<div class="stat-label"><i class="fas fa-arrow-up"></i> 最高上传速度</div>
+					<div class="stat-value" id="max-upload">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+				<div class="stat-card upload">
+					<div class="stat-label"><i class="fas fa-arrow-up"></i> 最低上传速度</div>
+					<div class="stat-value" id="min-upload">--</div>
+					<div class="stat-unit">Mbps</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="stats-group">
+			<h3>延迟信息</h3>
+			<div class="group-content">
+				<div class="stat-card latency">
+					<div class="stat-label"><i class="fas fa-clock"></i> 平均延迟</div>
+					<div class="stat-value" id="avg-latency">--</div>
+					<div class="stat-unit">ms</div>
+				</div>
+				<div class="stat-card latency">
+					<div class="stat-label"><i class="fas fa-clock"></i> 最高延迟</div>
+					<div class="stat-value" id="max-latency">--</div>
+					<div class="stat-unit">ms</div>
+				</div>
+				<div class="stat-card latency">
+					<div class="stat-label"><i class="fas fa-clock"></i> 最低延迟</div>
+					<div class="stat-value" id="min-latency">--</div>
+					<div class="stat-unit">ms</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="stats-group">
+			<h3>其他信息</h3>
+			<div class="group-content">
+				<div class="stat-card tests-count">
+					<div class="stat-label"><i class="fas fa-tasks"></i> 测试总数</div>
+					<div class="stat-value" id="tests-count">--</div>
+					<div class="stat-unit">次</div>
+				</div>
+				<div class="stat-card other">
+					<div class="stat-label"><i class="fas fa-building"></i> 运营商</div>
+					<div class="stat-value" id="isp-info">--</div>
+					<div class="stat-unit"></div>
+				</div>
+				<div class="stat-card other">
+					<div class="stat-label"><i class="fas fa-server"></i> 服务器名称</div>
+					<div class="stat-value" id="server-name-info">--</div>
+					<div class="stat-unit"></div>
+				</div>
+				<div class="stat-card other">
+					<div class="stat-label"><i class="fas fa-road"></i> 距离</div>
+					<div class="stat-value" id="distance-info">--</div>
+					<div class="stat-unit">km</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="container">
+		<h2>网络性能趋势图</h2>
+		<div class="chart-container">
+			<canvas id="combinedChart"></canvas>
+		</div>
+	</div>
+
+	<button class="btn-refresh" onclick="refreshData()"><i class="fas fa-sync-alt"></i> 刷新数据</button>
+	<button class="btn-refresh" style="background-color: #2196F3;" onclick="runSpeedTest()"><i class="fas fa-tachometer-alt"></i> 开始测速</button>
+
+	<script>
+		// 初始化图表
+		let combinedChart;
+
+		// 页面加载完成后初始化
+		document.addEventListener('DOMContentLoaded', function() {
+			initCharts();
+			fetchData();
+
+			// 每1分钟自动刷新一次数据
+			const refreshInterval = setInterval(refreshData, 60000);
+		});
+
+		// 初始化图表
+		function initCharts() {
+			// 创建合并图表
+			const combinedCtx = document.getElementById('combinedChart').getContext('2d');
+			combinedChart = new Chart(combinedCtx, {
+				type: 'line',
+				data: {
+					labels: [],
+					datasets: [{
+						label: '下载速度 (Mbps)',
+						data: [],
+						borderColor: '#2196F3',
+						backgroundColor: 'rgba(33, 150, 243, 0.1)',
+						borderWidth: 2,
+						fill: false,
+						tension: 0.3,
+						yAxisID: 'y'
+					}, {
+						label: '上传速度 (Mbps)',
+						data: [],
+						borderColor: '#4CAF50',
+						backgroundColor: 'rgba(76, 175, 80, 0.1)',
+						borderWidth: 2,
+						fill: false,
+						tension: 0.3,
+						yAxisID: 'y'
+					}, {
+						label: '延迟 (ms)',
+						data: [],
+						borderColor: '#FF9800',
+						backgroundColor: 'rgba(255, 152, 0, 0.1)',
+						borderWidth: 2,
+						fill: false,
+						tension: 0.3,
+						yAxisID: 'y1'
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					interaction: {
+						mode: 'index',
+						intersect: false,
+					},
+					scales: {
+						y: {
+							type: 'linear',
+							display: true,
+							position: 'left',
+							title: {
+								display: true,
+								text: '速度 (Mbps)'
+							},
+							beginAtZero: true
+						},
+						y1: {
+							type: 'linear',
+							display: true,
+							position: 'right',
+							title: {
+								display: true,
+								text: '延迟 (ms)'
+							},
+							beginAtZero: true,
+							grid: {
+								drawOnChartArea: false
+							}
+						},
+						x: {
+							type: 'category',
+							title: {
+								display: true,
+								text: '测试时间'
+							}
+						}
+					},
+					plugins: {
+						tooltip: {
+							mode: 'index',
+							intersect: false
+						},
+						legend: {
+							position: 'top'
+						}
+					}
+				}
+			});
+		}
+
+		// 获取数据
+		function fetchData() {
+			console.log('开始获取数据...');
+			fetch('/api/chart-data')
+				.then(response => {
+					console.log('响应状态:', response.status);
+					return response.json();
+				})
+				.then(data => {
+					console.log('获取到的数据:', data);
+					if (!data || !data.labels || data.labels.length === 0) {
+						console.log('没有数据');
+						return;
+					}
+
+					// 更新统计信息
+					updateStats(data);
+
+					// 更新图表数据
+					updateCharts(data);
+				})
+				.catch(error => {
+					console.error('获取数据失败:', error);
+				});
+		}
+
+		// 更新统计信息
+		function updateStats(data) {
+			const count = data.labels.length;
+			if (count === 0) return;
+
+			let sumDownload = 0;
+			let sumUpload = 0;
+			let sumLatency = 0;
+			let maxDownload = data.downloadData[0];
+			let minDownload = data.downloadData[0];
+			let maxUpload = data.uploadData[0];
+			let minUpload = data.uploadData[0];
+			let maxLatency = data.latencyData[0];
+			let minLatency = data.latencyData[0];
+
+			// 计算总和、最大值和最小值
+			for (let i = 0; i < count; i++) {
+				sumDownload += data.downloadData[i];
+				sumUpload += data.uploadData[i];
+				sumLatency += data.latencyData[i];
+
+				if (data.downloadData[i] > maxDownload) maxDownload = data.downloadData[i];
+				if (data.downloadData[i] < minDownload) minDownload = data.downloadData[i];
+				if (data.uploadData[i] > maxUpload) maxUpload = data.uploadData[i];
+				if (data.uploadData[i] < minUpload) minUpload = data.uploadData[i];
+				if (data.latencyData[i] > maxLatency) maxLatency = data.latencyData[i];
+				if (data.latencyData[i] < minLatency) minLatency = data.latencyData[i];
+			}
+
+			// 计算平均值
+			const avgDownload = (sumDownload / count).toFixed(2);
+			const avgUpload = (sumUpload / count).toFixed(2);
+			const avgLatency = Math.round(sumLatency / count);
+
+			// 更新DOM
+			document.getElementById('avg-download').textContent = avgDownload;
+			document.getElementById('max-download').textContent = maxDownload.toFixed(2);
+			document.getElementById('min-download').textContent = minDownload.toFixed(2);
+			document.getElementById('avg-upload').textContent = avgUpload;
+			document.getElementById('max-upload').textContent = maxUpload.toFixed(2);
+			document.getElementById('min-upload').textContent = minUpload.toFixed(2);
+			document.getElementById('avg-latency').textContent = avgLatency;
+			document.getElementById('max-latency').textContent = maxLatency;
+			document.getElementById('min-latency').textContent = minLatency;
+			document.getElementById('tests-count').textContent = count;
+
+			// 更新运营商、服务器名称和距离信息
+			if (data.isp) {
+				document.getElementById('isp-info').textContent = data.isp;
+			} else {
+				document.getElementById('isp-info').textContent = '--';
+			}
+
+			if (data.serverName) {
+				document.getElementById('server-name-info').textContent = data.serverName;
+			} else {
+				document.getElementById('server-name-info').textContent = '--';
+			}
+
+			if (data.distance) {
+				document.getElementById('distance-info').textContent = data.distance.toFixed(2) + ' km';
+			} else {
+				document.getElementById('distance-info').textContent = '--';
+			}
+		}
+
+		// 更新图表数据
+		function updateCharts(data) {
+			console.log('更新图表数据:', data);
+
+			// 提取数据
+			const labels = data.labels;
+			const downloadData = data.downloadData;
+			const uploadData = data.uploadData;
+			const latencyData = data.latencyData;
+
+			console.log('标签数据:', labels);
+			console.log('下载速度数据:', downloadData);
+			console.log('上传速度数据:', uploadData);
+			console.log('延迟数据:', latencyData);
+
+			// 更新合并图表
+			if (combinedChart) {
+				combinedChart.data.labels = labels;
+				combinedChart.data.datasets[0].data = downloadData;
+				combinedChart.data.datasets[1].data = uploadData;
+				combinedChart.data.datasets[2].data = latencyData;
+				combinedChart.update();
+				console.log('合并图表已更新');
+			} else {
+				console.error('combinedChart 实例不存在');
+			}
+
+			console.log('图表更新完成');
+		}
+
+		// 刷新数据
+		function refreshData() {
+			fetchData();
+		}
+
+		// 执行测速
+	function runSpeedTest() {
+		// 禁用按钮并显示加载状态
+		const testButton = document.querySelector('button[onclick="runSpeedTest()"]');
+		const refreshButton = document.querySelector('button[onclick="refreshData()"]');
+			testButton.disabled = true;
+			testButton.textContent = '测速中...';
+			testButton.classList.add('loading');
+			refreshButton.disabled = true;
+
+		// 发送请求到后端执行测速
+		fetch('/api/run-test', {
+			method: 'POST'
+		})
+			.then(response => {
+				return response.json();
+			})
+			.then(result => {
+				// 启用按钮
+				testButton.disabled = false;
+				testButton.textContent = '开始测速';
+				testButton.classList.remove('loading');
+				refreshButton.disabled = false;
+
+				// 显示结果
+				const resultAlert = document.createElement('div');
+				resultAlert.className = 'result-alert';
+				resultAlert.innerHTML = `
+					<div class="alert-content">
+						<h3>测速完成！</h3>
+						<p><strong>下载速度:</strong> ${result.download_speed.toFixed(2)} Mbps</p>
+						<p><strong>上传速度:</strong> ${result.upload_speed.toFixed(2)} Mbps</p>
+						<p><strong>延迟:</strong> ${result.latency} ms</p>
+						<p><strong>运营商:</strong> ${result.isp}</p>
+						<p><strong>服务器:</strong> ${result.server_name}</p>
+						<button onclick="this.parentElement.parentElement.remove()">关闭</button>
+					</div>
+				`;
+				document.body.appendChild(resultAlert);
+
+				// 添加动画效果
+				setTimeout(() => {
+					resultAlert.classList.add('show');
+				}, 10);
+
+				// 刷新数据
+				refreshData();
+			})
+			.catch(error => {
+				console.error('测速失败:', error);
+				// 启用按钮
+				testButton.disabled = false;
+				testButton.textContent = '开始测速';
+				testButton.classList.remove('loading');
+				refreshButton.disabled = false;
+
+				// 显示错误消息
+				const errorAlert = document.createElement('div');
+				errorAlert.className = 'error-alert';
+				errorAlert.innerHTML = `
+					<div class="alert-content">
+						<h3>测速失败</h3>
+						<p>很抱歉，测速过程中发生错误，请稍后再试。</p>
+						<button onclick="this.parentElement.parentElement.remove()">关闭</button>
+					</div>
+				`;
+				document.body.appendChild(errorAlert);
+
+				// 添加动画效果
+				setTimeout(() => {
+					errorAlert.classList.add('show');
+				}, 10);
+			});
+		}
+
+		// 添加自定义样式
+		const style = document.createElement('style');
+		style.textContent = `
+			.result-alert, .error-alert {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0.5);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				z-index: 1000;
+				opacity: 0;
+				transition: opacity 0.3s ease;
+			}
+
+			.result-alert.show, .error-alert.show {
+				opacity: 1;
+			}
+
+			.alert-content {
+				background-color: white;
+				padding: 25px;
+				border-radius: 12px;
+				box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+				max-width: 400px;
+				width: 90%;
+				transform: translateY(20px);
+				transition: transform 0.3s ease;
+			}
+
+			.result-alert.show .alert-content, .error-alert.show .alert-content {
+				transform: translateY(0);
+			}
+
+			.alert-content h3 {
+				margin-top: 0;
+				margin-bottom: 20px;
+				border-bottom: none;
+			}
+
+			.result-alert .alert-content h3 {
+				color: #2ecc71;
+			}
+
+			.alert-content p {
+				margin-bottom: 10px;
+				line-height: 1.5;
+			}
+
+			.alert-content button {
+				background-color: var(--primary-color);
+				color: white;
+				border: none;
+				padding: 10px 20px;
+				border-radius: 30px;
+				cursor: pointer;
+				margin-top: 20px;
+				width: 100%;
+				transition: background-color 0.3s ease;
+			}
+
+			.alert-content button:hover {
+				background-color: #2980b9;
+			}
+
+			.error-alert .alert-content h3 {
+				color: #e74c3c;
+			}
+		`;
+		document.head.appendChild(style);
+	</script>
+</body>
+</html>
