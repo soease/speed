@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -14,12 +16,38 @@ import (
 	"github.com/showwin/speedtest-go/speedtest"
 )
 
+// 全局静态变量，统一数据库路径
+var DBPath string
+
+func init() {
+	// 获取当前可执行文件的目录
+	_, filename, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(filename)
+	DBPath = filepath.Join(dir, "results.db")
+}
+
+// 统一打开数据库的函数
+func openDatabase() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("打开数据库失败: %v", err)
+	}
+
+	// 验证连接
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("验证数据库连接失败: %v", err)
+	}
+
+	return db, nil
+}
+
 // 列出数据库中的所有测试结果
 func listResults() {
 	// 连接数据库
-	db, err := sql.Open("sqlite3", "./speedtest_results.db")
+	db, err := openDatabase()
 	if err != nil {
-		log.Fatalf("打开数据库失败: %v", err)
+		log.Fatalf("%v", err)
 	}
 	defer db.Close()
 
@@ -99,9 +127,9 @@ func autoTest(interval int) {
 			uploadMbps := float64(server.ULSpeed) * 8 / 1e6
 
 			// 保存测试结果到数据库
-			db, err := sql.Open("sqlite3", "./speedtest_results.db")
+			db, err := openDatabase()
 			if err != nil {
-				log.Printf("打开数据库失败: %v", err)
+				log.Printf("%v", err)
 				continue
 			}
 			defer db.Close()
@@ -127,7 +155,7 @@ func main() {
 	// 解析命令行参数
 	listFlag := flag.Bool("list", false, "列出所有测试记录")
 	webFlag := flag.Bool("web", false, "启动Web服务器展示统计图表")
-	portFlag := flag.String("port", "8081", "Web服务器端口")
+	portFlag := flag.String("port", "8080", "Web服务器端口")
 	intervalFlag := flag.Int("interval", 0, "自动测速间隔(分钟)，0表示不自动测试")
 	limitFlag := flag.Int("limit", 100, "趋势图显示的最大测速记录数，默认100")
 	serverListFlag := flag.Bool("servers", false, "列出所有可用服务器")
@@ -300,7 +328,7 @@ func main() {
 
 		// 5. 保存测试结果到SQLite数据库
 		// 连接数据库
-		db, err := sql.Open("sqlite3", "./speedtest_results.db")
+		db, err := sql.Open("sqlite3", DBPath)
 		if err != nil {
 			log.Fatalf("打开数据库失败: %v", err)
 		}

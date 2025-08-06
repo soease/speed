@@ -28,7 +28,7 @@ A simple yet functional network speed test application that measures download sp
 ├── go.sum              # Dependency list
 ├── main.go             # Main program entry
 ├── webserver.go        # Web server implementation
-├── speedtest_results.db # SQLite database file
+├── results.db          # SQLite database file
 ├── templates/          # HTML templates
 │   └── index.html      # Main page
 ├── README.md           # Project description (Chinese)

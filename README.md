@@ -28,7 +28,7 @@
 ├── go.sum              # 依赖包列表
 ├── main.go             # 主程序入口
 ├── webserver.go        # Web服务器实现
-├── speedtest_results.db # SQLite数据库文件
+├── results.db          # SQLite数据库文件
 ├── templates/          # HTML模板
 │   └── index.html      # 主页面
 └── README.md           # 项目说明

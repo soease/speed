@@ -421,18 +421,44 @@
 		</div>
 
 		<div class="stats-group">
-			<h3>其他信息</h3>
-			<div class="group-content">
-				<div class="stat-card tests-count">
-					<div class="stat-label"><i class="fas fa-tasks"></i> 测试总数</div>
-					<div class="stat-value" id="tests-count">--</div>
-					<div class="stat-unit">次</div>
-				</div>
-				<div class="stat-card other">
-					<div class="stat-label"><i class="fas fa-building"></i> 运营商</div>
-					<div class="stat-value" id="isp-info">--</div>
-					<div class="stat-unit"></div>
-				</div>
+		<h3>IP信息</h3>
+		<div class="group-content">
+			<div class="stat-card other" style="grid-column: span 2;">
+				<div class="stat-label"><i class="fas fa-server"></i> 服务器公网IP</div>
+				<div class="stat-value" id="server-public-ip">--</div>
+				<div class="stat-unit"></div>
+			</div>
+			<div class="stat-card other" style="grid-column: span 2;">
+				<div class="stat-label"><i class="fas fa-map-marker-alt"></i> 服务器IP所在地</div>
+				<div class="stat-value" id="server-ip-location">--</div>
+				<div class="stat-unit"></div>
+			</div>
+			<div class="stat-card other" style="grid-column: span 2;">
+				<div class="stat-label"><i class="fas fa-user"></i> 访问者IP</div>
+				<div class="stat-value" id="visitor-ip">--</div>
+				<div class="stat-unit"></div>
+			</div>
+			<div class="stat-card other" style="grid-column: span 2;">
+				<div class="stat-label"><i class="fas fa-map-marker-alt"></i> 访问者IP所在地</div>
+				<div class="stat-value" id="visitor-ip-location">--</div>
+				<div class="stat-unit"></div>
+			</div>
+		</div>
+		</div>
+
+		<div class="stats-group">
+		<h3>其他信息</h3>
+		<div class="group-content">
+			<div class="stat-card tests-count">
+				<div class="stat-label"><i class="fas fa-tasks"></i> 测试总数</div>
+				<div class="stat-value" id="tests-count">--</div>
+				<div class="stat-unit">次</div>
+			</div>
+			<div class="stat-card other">
+				<div class="stat-label"><i class="fas fa-building"></i> 运营商</div>
+				<div class="stat-value" id="isp-info">--</div>
+				<div class="stat-unit"></div>
+			</div>
 				<div class="stat-card other">
 					<div class="stat-label"><i class="fas fa-server"></i> 服务器名称</div>
 					<div class="stat-value" id="server-name-info">--</div>
@@ -465,10 +491,41 @@
 		document.addEventListener('DOMContentLoaded', function() {
 			initCharts();
 			fetchData();
+			fetchIPInfo();
 
 			// 每1分钟自动刷新一次数据
 			const refreshInterval = setInterval(refreshData, 60000);
 		});
+
+		// 获取IP信息（服务器和访问者）
+		function fetchIPInfo() {
+			fetch('/api/ip-info')
+				.then(response => {
+					if (!response.ok) {
+						throw new Error('网络响应错误');
+					}
+					return response.json();
+				})
+				.then(data => {
+					// 更新服务器IP信息
+					document.getElementById('server-public-ip').textContent = data.server_ip.ip;
+					document.getElementById('server-ip-location').textContent = `${data.server_ip.country} ${data.server_ip.province} ${data.server_ip.city}`;
+						
+					// 更新访问者IP信息
+					document.getElementById('visitor-ip').textContent = data.visitor_ip.ip;
+					document.getElementById('visitor-ip-location').textContent = `${data.visitor_ip.country} ${data.visitor_ip.province} ${data.visitor_ip.city}`;
+						
+					// 更新运营商信息（使用服务器IP的运营商）
+					document.getElementById('isp-info').textContent = data.server_ip.isp;
+				})
+				.catch(error => {
+					console.error('获取IP信息失败:', error);
+					document.getElementById('server-public-ip').textContent = '获取失败';
+					document.getElementById('server-ip-location').textContent = '获取失败';
+					document.getElementById('visitor-ip').textContent = '获取失败';
+					document.getElementById('visitor-ip-location').textContent = '获取失败';
+				});
+		}
 
 		// 初始化图表
 		function initCharts() {

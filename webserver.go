@@ -2,12 +2,14 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -106,9 +108,9 @@ func runTestHandler(w http.ResponseWriter, r *http.Request) {
 	uploadMbps := float64(server.ULSpeed) * 8 / 1e6
 
 	// 6. 保存测试结果到数据库
-	db, err := sql.Open("sqlite3", "./speedtest_results.db")
+	db, err := openDatabase()
 	if err != nil {
-		log.Printf("打开数据库失败: %v", err)
+		log.Printf("%v", err)
 		http.Error(w, "保存结果失败", http.StatusInternalServerError)
 		return
 	}
@@ -153,9 +155,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 func chartDataHandler(limit int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// 连接数据库
-		db, err := sql.Open("sqlite3", "./speedtest_results.db")
+		db, err := openDatabase()
 		if err != nil {
-			log.Printf("打开数据库失败: %v", err)
+			log.Printf("%v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -229,9 +231,9 @@ func chartDataHandler(limit int) http.HandlerFunc {
 
 // 初始化数据库
 func initDatabase() error {
-	db, err := sql.Open("sqlite3", "./speedtest_results.db")
+	db, err := openDatabase()
 	if err != nil {
-		return fmt.Errorf("打开数据库失败: %v", err)
+		return err
 	}
 	defer db.Close()
 
@@ -271,8 +273,165 @@ func startWebServer(port string, limit int) {
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/api/chart-data", chartDataHandler(limit))
 	http.HandleFunc("/api/run-test", runTestHandler)
+	http.HandleFunc("/api/ip-info", getIPInfoHandler)
 
 	// 启动服务器
 	log.Printf("Web服务器已启动，监听端口: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+// 定义IP信息结构
+type IPDetail struct {
+    IP          string `json:"ip"`
+    Country     string `json:"country"`
+    Province    string `json:"province"`
+    City        string `json:"city"`
+    ISP         string `json:"isp"`
+}
+
+type IPInfo struct {
+    ServerIP    IPDetail `json:"server_ip"`
+    VisitorIP   IPDetail `json:"visitor_ip"`
+}
+
+// 获取公网IP和地理位置信息的处理函数
+func getIPInfoHandler(w http.ResponseWriter, r *http.Request) {
+	// 获取访问者IP
+	visitorIP := r.RemoteAddr
+	log.Printf("原始访问者IP: %s\n", visitorIP)
+	// 移除端口部分
+	if idx := strings.LastIndex(visitorIP, ":"); idx != -1 {
+		visitorIP = visitorIP[:idx]
+		log.Printf("移除端口后的访问者IP: %s\n", visitorIP)
+	} else {
+		// 移除端口部分
+		if idx := strings.LastIndex(visitorIP, ":"); idx != -1 {
+			visitorIP = visitorIP[:idx]
+		}
+	}
+
+	// 获取服务器公网IP
+	serverIP := visitorIP
+	// 如果是本地测试，使用icanhazip.com的API获取公网IP
+	if visitorIP == "[::1]" || visitorIP == "127.0.0.1" || visitorIP == "localhost" {
+		// 创建带有超时设置的HTTP客户端
+		client := &http.Client{
+			Timeout: 5 * time.Second,
+		}
+
+		// 使用icanhazip.com获取服务器公网IP
+		resp, err := client.Get("https://icanhazip.com/")
+		if err != nil {
+			log.Printf("获取服务器公网IP失败: %v", err)
+			http.Error(w, "获取服务器公网IP失败", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		// 读取API响应
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("读取API响应失败: %v", err)
+			http.Error(w, "获取服务器公网IP失败", http.StatusInternalServerError)
+			return
+		}
+
+		// 去除换行符
+		serverIP = strings.TrimSpace(string(body))
+	}
+
+	// 获取服务器IP地理位置信息
+	log.Printf("用于获取地理位置的服务器IP: %s\n", serverIP)
+	geoRespServer, err := http.Get(fmt.Sprintf("http://ip-api.com/json/%s?lang=zh-CN", serverIP))
+	if err != nil {
+		log.Printf("获取服务器IP地理位置信息失败: %v", err)
+		http.Error(w, "获取服务器IP地理位置信息失败", http.StatusInternalServerError)
+		return
+	}
+	defer geoRespServer.Body.Close()
+
+	var geoDataServer map[string]interface{}
+	if err := json.NewDecoder(geoRespServer.Body).Decode(&geoDataServer); err != nil {
+		log.Printf("解析服务器IP地理位置响应失败: %v", err)
+		http.Error(w, "解析服务器IP地理位置响应失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 获取访问者IP地理位置信息
+	log.Printf("用于获取地理位置的访问者IP: %s\n", visitorIP)
+	geoRespVisitor, err := http.Get(fmt.Sprintf("http://ip-api.com/json/%s?lang=zh-CN", visitorIP))
+	if err != nil {
+		log.Printf("获取访问者IP地理位置信息失败: %v", err)
+		http.Error(w, "获取访问者IP地理位置信息失败", http.StatusInternalServerError)
+		return
+	}
+	defer geoRespVisitor.Body.Close()
+
+	var geoDataVisitor map[string]interface{}
+	if err := json.NewDecoder(geoRespVisitor.Body).Decode(&geoDataVisitor); err != nil {
+		log.Printf("解析访问者IP地理位置响应失败: %v", err)
+		http.Error(w, "解析访问者IP地理位置响应失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 构造服务器IP信息
+	serverIPInfo := IPDetail{
+		IP: serverIP,
+	}
+
+	// 安全获取服务器地理位置信息
+	if country, ok := geoDataServer["country"].(string); ok {
+		serverIPInfo.Country = country
+	}
+	if province, ok := geoDataServer["regionName"].(string); ok {
+		serverIPInfo.Province = province
+	}
+	if city, ok := geoDataServer["city"].(string); ok {
+		serverIPInfo.City = city
+	}
+	if isp, ok := geoDataServer["isp"].(string); ok {
+		serverIPInfo.ISP = isp
+	}
+
+	// 构造访问者IP信息
+	visitorIPInfo := IPDetail{
+		IP: visitorIP,
+	}
+
+	// 安全获取访问者地理位置信息
+	if country, ok := geoDataVisitor["country"].(string); ok {
+		visitorIPInfo.Country = country
+	}
+	if province, ok := geoDataVisitor["regionName"].(string); ok {
+		visitorIPInfo.Province = province
+	}
+	if city, ok := geoDataVisitor["city"].(string); ok {
+		visitorIPInfo.City = city
+	}
+	if isp, ok := geoDataVisitor["isp"].(string); ok {
+		visitorIPInfo.ISP = isp
+	}
+
+	// 构造响应数据
+	ipInfo := IPInfo{
+		ServerIP:  serverIPInfo,
+		VisitorIP: visitorIPInfo,
+	}
+
+	// 设置响应头
+	w.Header().Set("Content-Type", "application/json")
+
+	// 返回JSON响应
+	if err := json.NewEncoder(w).Encode(ipInfo); err != nil {
+		log.Printf("编码IP信息失败: %v", err)
+		http.Error(w, "编码IP信息失败", http.StatusInternalServerError)
+		return
+	}
+	return
+}
+
+// 旧的getIPInfoHandler函数，保留以兼容可能的调用
+func oldGetIPInfoHandler(w http.ResponseWriter, r *http.Request) {
+	// 直接重定向到新的处理函数
+	http.Redirect(w, r, "/api/ip-info", http.StatusMovedPermanently)
 }
